@@ -28,7 +28,7 @@ interface TopicsRepository {
     /**
      * Gets data for a specific topic
      */
-    fun getTopic(id: Int): Flow<Topic>
+    suspend fun getTopic(id: Int): Topic
 
     /**
      * Sets the user's currently followed topics

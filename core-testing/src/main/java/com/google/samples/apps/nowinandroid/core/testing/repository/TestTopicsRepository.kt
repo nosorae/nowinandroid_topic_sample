@@ -21,6 +21,7 @@ import com.google.samples.apps.nowinandroid.core.model.data.Topic
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 class TestTopicsRepository : TopicsRepository {
@@ -38,9 +39,8 @@ class TestTopicsRepository : TopicsRepository {
 
     override fun getTopicsStream(): Flow<List<Topic>> = topicsFlow
 
-    override fun getTopic(id: Int): Flow<Topic> {
-        return topicsFlow.map { topics -> topics.find { it.id == id }!! }
-    }
+    override suspend fun getTopic(id: Int): Topic =
+        topicsFlow.first().find { it.id == id }!!
 
     override suspend fun setFollowedTopicIds(followedTopicIds: Set<Int>) {
         _followedTopicIds.tryEmit(followedTopicIds)

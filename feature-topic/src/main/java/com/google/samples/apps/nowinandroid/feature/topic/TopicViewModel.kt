@@ -16,6 +16,7 @@
 
 package com.google.samples.apps.nowinandroid.feature.topic
 
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -25,14 +26,9 @@ import com.google.samples.apps.nowinandroid.core.model.data.FollowableTopic
 import com.google.samples.apps.nowinandroid.core.model.data.NewsResource
 import com.google.samples.apps.nowinandroid.core.model.data.Topic
 import com.google.samples.apps.nowinandroid.core.result.Result
-import com.google.samples.apps.nowinandroid.core.result.asResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -42,18 +38,53 @@ class TopicViewModel @Inject constructor(
     newsRepository: NewsRepository
 ) : ViewModel() {
 
-    private val topicId: Int = checkNotNull(savedStateHandle[TopicDestinationsArgs.TOPIC_ID_ARG])
+    private val topicId: Int? = savedStateHandle[TopicDestinationsArgs.TOPIC_ID_ARG]
 
     // Observe the followed topics, as they could change over time.
-    private val followedTopicIdsStream: Flow<Result<Set<Int>>> =
-        topicsRepository.getFollowedTopicIdsStream().asResult()
+    private val followedTopicIdsStream: StateFlow<Result<Set<Int>>> =
+        topicsRepository.getFollowedTopicIdsStream()
+            .map { Result.Success(it) }
+            .catch {
+                Result.Error(it)
+            }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = Result.Loading
+            )
 
     // Observe topic information
-    private val topic: Flow<Result<Topic>> = topicsRepository.getTopic(topicId).asResult()
+    private val topic: StateFlow<Result<Topic>> = flow {
+        try {
+            if (topicId == null) {
+                emit(Result.Error(IllegalStateException("Topic ID was null.")))
+                return@flow
+            }
+            emit(Result.Success(topicsRepository.getTopic(topicId)))
+        } catch (e: Exception) {
+            Log.e("TopicViewModel", e.message ?: "Error loading topic")
+            emit(Result.Error(e))
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = Result.Loading
+    )
 
     // Observe the News for this topic
-    private val newsStream: Flow<Result<List<NewsResource>>> =
-        newsRepository.getNewsResourcesStream(setOf(topicId)).asResult()
+    private val newsStream: StateFlow<Result<List<NewsResource>>> =
+        newsRepository.getNewsResourcesStream(setOf(topicId ?: 0)) // null topic handled by `topic`
+            .map {
+                Result.Success(it)
+            }
+            .catch {
+                Result.Error(it)
+            }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = Result.Loading
+            )
 
     val uiState: StateFlow<TopicScreenUiState> =
         combine(
@@ -94,7 +125,9 @@ class TopicViewModel @Inject constructor(
 
     fun followTopicToggle(followed: Boolean) {
         viewModelScope.launch {
-            topicsRepository.toggleFollowedTopicId(topicId, followed)
+            topicId?.let {
+                topicsRepository.toggleFollowedTopicId(it, followed)
+            }
         }
     }
 }

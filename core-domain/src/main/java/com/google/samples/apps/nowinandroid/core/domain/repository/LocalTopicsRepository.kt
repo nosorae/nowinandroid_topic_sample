@@ -23,11 +23,15 @@ import com.google.samples.apps.nowinandroid.core.datastore.NiaPreferences
 import com.google.samples.apps.nowinandroid.core.domain.model.asEntity
 import com.google.samples.apps.nowinandroid.core.domain.suspendRunCatching
 import com.google.samples.apps.nowinandroid.core.model.data.Topic
+import com.google.samples.apps.nowinandroid.core.network.Dispatcher
 import com.google.samples.apps.nowinandroid.core.network.NiANetwork
+import com.google.samples.apps.nowinandroid.core.network.NiaDispatchers
 import com.google.samples.apps.nowinandroid.core.network.model.NetworkTopic
+import kotlinx.coroutines.CoroutineDispatcher
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 
 /**
  * Room database backed implementation of the [TopicsRepository].
@@ -35,15 +39,17 @@ import kotlinx.coroutines.flow.map
 class LocalTopicsRepository @Inject constructor(
     private val topicDao: TopicDao,
     private val network: NiANetwork,
-    private val niaPreferences: NiaPreferences
+    private val niaPreferences: NiaPreferences,
+    @Dispatcher(NiaDispatchers.IO) private val ioDispatcher: CoroutineDispatcher,
 ) : TopicsRepository {
 
     override fun getTopicsStream(): Flow<List<Topic>> =
         topicDao.getTopicEntitiesStream()
             .map { it.map(TopicEntity::asExternalModel) }
 
-    override fun getTopic(id: Int): Flow<Topic> =
-        topicDao.getTopicEntity(id).map { it.asExternalModel() }
+    override suspend fun getTopic(id: Int): Topic = withContext(ioDispatcher) {
+        topicDao.getTopicEntity(id).let(TopicEntity::asExternalModel)
+    }
 
     override suspend fun setFollowedTopicIds(followedTopicIds: Set<Int>) =
         niaPreferences.setFollowedTopicIds(followedTopicIds)
