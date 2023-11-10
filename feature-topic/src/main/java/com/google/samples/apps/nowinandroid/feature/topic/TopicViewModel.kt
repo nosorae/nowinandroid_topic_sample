@@ -38,7 +38,7 @@ class TopicViewModel @Inject constructor(
     newsRepository: NewsRepository
 ) : ViewModel() {
 
-    private val topicId: Int? = savedStateHandle[TopicDestinationsArgs.TOPIC_ID_ARG]
+    private val topicId: Int = checkNotNull(savedStateHandle[TopicDestinationsArgs.TOPIC_ID_ARG])
 
     // Observe the followed topics, as they could change over time.
     private val followedTopicIdsStream: StateFlow<Result<Set<Int>>> =
@@ -56,10 +56,6 @@ class TopicViewModel @Inject constructor(
     // Observe topic information
     private val topic: StateFlow<Result<Topic>> = flow {
         try {
-            if (topicId == null) {
-                emit(Result.Error(IllegalStateException("Topic ID was null.")))
-                return@flow
-            }
             emit(Result.Success(topicsRepository.getTopic(topicId)))
         } catch (e: Exception) {
             Log.e("TopicViewModel", e.message ?: "Error loading topic")
@@ -73,7 +69,7 @@ class TopicViewModel @Inject constructor(
 
     // Observe the News for this topic
     private val newsStream: StateFlow<Result<List<NewsResource>>> =
-        newsRepository.getNewsResourcesStream(setOf(topicId ?: 0)) // null topic handled by `topic`
+        newsRepository.getNewsResourcesStream(setOf(topicId)) // null topic handled by `topic`
             .map {
                 Result.Success(it)
             }
@@ -125,9 +121,7 @@ class TopicViewModel @Inject constructor(
 
     fun followTopicToggle(followed: Boolean) {
         viewModelScope.launch {
-            topicId?.let {
-                topicsRepository.toggleFollowedTopicId(it, followed)
-            }
+            topicsRepository.toggleFollowedTopicId(topicId, followed)
         }
     }
 }
