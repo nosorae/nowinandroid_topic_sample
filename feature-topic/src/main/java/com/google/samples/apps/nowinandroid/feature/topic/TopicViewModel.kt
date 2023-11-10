@@ -41,34 +41,25 @@ class TopicViewModel @Inject constructor(
     private val topicId: Int = checkNotNull(savedStateHandle[TopicDestinationsArgs.TOPIC_ID_ARG])
 
     // Observe the followed topics, as they could change over time.
-    private val followedTopicIdsStream: StateFlow<Result<Set<Int>>> =
+    private val followedTopicIdsStream: Flow<Result<Set<Int>>> =
         topicsRepository.getFollowedTopicIdsStream()
             .map { Result.Success(it) }
             .catch {
                 Result.Error(it)
             }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = Result.Loading
-            )
 
     // Observe topic information
-    private val topic: StateFlow<Result<Topic>> = flow {
+    private val topic: Flow<Result<Topic>> = flow {
         try {
             emit(Result.Success(topicsRepository.getTopic(topicId)))
         } catch (e: Exception) {
             Log.e("TopicViewModel", e.message ?: "Error loading topic")
             emit(Result.Error(e))
         }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = Result.Loading
-    )
+    }
 
     // Observe the News for this topic
-    private val newsStream: StateFlow<Result<List<NewsResource>>> =
+    private val newsStream: Flow<Result<List<NewsResource>>> =
         newsRepository.getNewsResourcesStream(setOf(topicId)) // null topic handled by `topic`
             .map {
                 Result.Success(it)
@@ -76,11 +67,6 @@ class TopicViewModel @Inject constructor(
             .catch {
                 Result.Error(it)
             }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = Result.Loading
-            )
 
     val uiState: StateFlow<TopicScreenUiState> =
         combine(
