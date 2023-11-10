@@ -49,14 +49,15 @@ class TopicViewModel @Inject constructor(
             }
 
     // Observe topic information
-    private val topic: Flow<Result<Topic>> = flow {
-        try {
-            emit(Result.Success(topicsRepository.getTopic(topicId)))
-        } catch (e: Exception) {
-            Log.e("TopicViewModel", e.message ?: "Error loading topic")
-            emit(Result.Error(e))
-        }
-    }
+    private val topic: Flow<Result<Topic>> =
+        topicsRepository.getTopic(topicId)
+            .map {
+                Result.Success(it)
+            }
+            .catch {
+                Log.e("TopicViewModel", it.message ?: "Error loading topic")
+                Result.Error(it)
+            }
 
     // Observe the News for this topic
     private val newsStream: Flow<Result<List<NewsResource>>> =

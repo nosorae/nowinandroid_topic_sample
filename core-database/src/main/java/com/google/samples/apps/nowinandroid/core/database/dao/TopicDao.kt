@@ -36,7 +36,7 @@ interface TopicDao {
         WHERE id = :topicId
     """
     )
-    suspend fun getTopicEntity(topicId: Int): TopicEntity
+    fun getTopicEntity(topicId: Int): Flow<TopicEntity>
 
     @Query(value = "SELECT * FROM topics")
     fun getTopicEntitiesStream(): Flow<List<TopicEntity>>
