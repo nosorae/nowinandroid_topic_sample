@@ -26,6 +26,7 @@ import com.google.samples.apps.nowinandroid.core.model.data.FollowableTopic
 import com.google.samples.apps.nowinandroid.core.model.data.NewsResource
 import com.google.samples.apps.nowinandroid.core.model.data.Topic
 import com.google.samples.apps.nowinandroid.core.result.Result
+import com.google.samples.apps.nowinandroid.core.result.asResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
@@ -42,32 +43,15 @@ class TopicViewModel @Inject constructor(
 
     // Observe the followed topics, as they could change over time.
     private val followedTopicIdsStream: Flow<Result<Set<Int>>> =
-        topicsRepository.getFollowedTopicIdsStream()
-            .map { Result.Success(it) }
-            .catch {
-                Result.Error(it)
-            }
+        topicsRepository.getFollowedTopicIdsStream().asResult()
 
     // Observe topic information
     private val topic: Flow<Result<Topic>> =
-        topicsRepository.getTopic(topicId)
-            .map {
-                Result.Success(it)
-            }
-            .catch {
-                Log.e("TopicViewModel", it.message ?: "Error loading topic")
-                Result.Error(it)
-            }
+        topicsRepository.getTopic(topicId).asResult()
 
     // Observe the News for this topic
     private val newsStream: Flow<Result<List<NewsResource>>> =
-        newsRepository.getNewsResourcesStream(setOf(topicId)) // null topic handled by `topic`
-            .map {
-                Result.Success(it)
-            }
-            .catch {
-                Result.Error(it)
-            }
+        newsRepository.getNewsResourcesStream(setOf(topicId)).asResult()
 
     val uiState: StateFlow<TopicScreenUiState> =
         combine(
